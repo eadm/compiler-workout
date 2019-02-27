@@ -41,7 +41,54 @@ module Expr =
        Takes a state and an expression, and returns the value of the expression in 
        the given state.
     *)
-    let eval _ = failwith "Not implemented yet"
+    let rec eval state expr =
+      let apply_op raw_op x y =
+        (*
+          Convert int to bool
+
+          val of_int : int -> bool
+        *)
+        let of_int i = i != 0 in
+        (*
+          Convert bool to int
+
+          val to_int : bool -> int
+        *)
+        let to_int b = if b then 1 else 0 in
+        (*
+          Applies compare operation and convert it result to int
+
+          val compare_op : (int -> int -> bool) -> int -> int -> int
+        *)
+        let compare_op op x y = to_int (op x y) in
+        (*
+          Applies boolean operation and convert it result to int
+
+          val compare_op : (bool -> bool -> bool) -> int -> int -> int
+        *)
+        let boolean_op op x y = to_int (op (of_int x) (of_int y)) in
+        let op = match raw_op with
+        | "+"  -> ( + )
+        | "-"  -> ( - )
+        | "*"  -> ( * )
+        | "/"  -> ( / )
+        | "%"  -> (mod)
+        | "<"  -> compare_op ( <  )
+        | "<=" -> compare_op ( <= )
+        | ">"  -> compare_op ( >  )
+        | ">=" -> compare_op ( >= )
+        | "==" -> compare_op ( == )
+        | "!=" -> compare_op ( != )
+        | "&&" -> boolean_op ( && )
+        | "!!" -> boolean_op ( || )
+        | _    -> failwith (Printf.sprintf "Unknown operation %s" raw_op)
+        in
+        op x y
+      in
+      match expr with
+      | Const (n)        -> n
+      | Var (x)          -> state x
+      | Binop (op, x, y) -> apply_op op (eval state x) (eval state y)
 
   end
                     
