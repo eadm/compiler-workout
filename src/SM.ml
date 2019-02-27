@@ -1,5 +1,6 @@
-open GT       
-       
+open GT
+open Syntax
+
 (* The type for the stack machine instructions *)
 @type insn =
 (* binary operator                 *) | BINOP of string
@@ -17,13 +18,41 @@ type prg = insn list
  *)
 type config = int list * Syntax.Stmt.config
 
+(*
+    val eval_insn : config -> insn -> config
+*)
+let eval_insn (stack, conf) insn =
+    let (state, stdin, stdout) = conf in match insn with
+    | BINOP (op) -> (
+        match stack with
+            | x :: y :: ss -> ((Expr.apply_op op x y) :: ss, conf)
+            | _            -> failwith "There is no enough element on the stack"
+    )
+    | CONST (n)  -> (n :: stack, conf)
+    | READ       -> (
+        match stdin with
+            | i :: is -> (i :: stack, (state, is, stdout))
+            | _       -> failwith "Stdin is empty"
+    )
+    | WRITE      -> (
+        match stack with
+            | x :: ss -> (ss, (state, stdin, stdout @ [x]))
+            | _       -> failwith "Stack is empty"
+    )
+    | LD (x)     -> (state x :: stack, conf)
+    | ST (x)     -> (
+        match stack with
+            | v :: _ -> (stack, (Expr.update x v state, stdin, stdout))
+            | _       -> failwith "Stack is empty"
+    )
+
 (* Stack machine interpreter
 
      val eval : config -> prg -> config
 
    Takes a configuration and a program, and returns a configuration as a result
  *)                         
-let eval _ = failwith "Not yet implemented"
+let rec eval config prg = List.fold_left eval_insn config prg
 
 (* Top-level evaluation
 
