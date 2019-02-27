@@ -70,4 +70,17 @@ let run i p = let (_, (_, _, o)) = eval ([], (Syntax.Expr.empty, i, [])) p in o
    stack machine
  *)
 
-let compile _ = failwith "Not yet implemented"
+let rec compile stmt =
+    (*
+        val compile_expr : Syntax.Expr.t -> prg
+    *)
+    let rec compile_expr expr = match expr with
+        | Syntax.Expr.Const (n)        -> [CONST n]
+        | Syntax.Expr.Var (x)          -> [LD x]
+        | Syntax.Expr.Binop (op, x, y) -> (compile_expr x) @ (compile_expr y) @ [BINOP op]
+    in
+    match stmt with
+    | Syntax.Stmt.Read (x)         -> [READ; ST x]
+    | Syntax.Stmt.Write (expr)     -> (compile_expr expr) @ [WRITE]
+    | Syntax.Stmt.Assign (x, expr) -> (compile_expr expr) @ [ST x]
+    | Syntax.Stmt.Seq (a, b)       -> (compile a) @ (compile b)
