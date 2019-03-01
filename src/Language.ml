@@ -37,15 +37,65 @@ module Expr =
     *)
     let update x v s = fun y -> if x = y then v else s y
 
+    (* Apply raw binary operation to arguments
+          val apply_op : string -> int -> int -> int
+    *)
+    let apply_op raw_op x y =
+      (*
+        Convert int to bool
+
+        val of_int : int -> bool
+      *)
+      let of_int i = i != 0 in
+      (*
+        Convert bool to int
+
+        val to_int : bool -> int
+      *)
+      let to_int b = if b then 1 else 0 in
+      (*
+        Applies compare operation and convert it result to int
+
+        val compare_op : (int -> int -> bool) -> int -> int -> int
+      *)
+      let compare_op op x y = to_int (op x y) in
+      (*
+        Applies boolean operation and convert it result to int
+
+        val compare_op : (bool -> bool -> bool) -> int -> int -> int
+      *)
+      let boolean_op op x y = to_int (op (of_int x) (of_int y)) in
+      let op = match raw_op with
+      | "+"  -> ( + )
+      | "-"  -> ( - )
+      | "*"  -> ( * )
+      | "/"  -> ( / )
+      | "%"  -> (mod)
+      | "<"  -> compare_op ( <  )
+      | "<=" -> compare_op ( <= )
+      | ">"  -> compare_op ( >  )
+      | ">=" -> compare_op ( >= )
+      | "==" -> compare_op ( == )
+      | "!=" -> compare_op ( != )
+      | "&&" -> boolean_op ( && )
+      | "!!" -> boolean_op ( || )
+      | _    -> failwith (Printf.sprintf "Unknown operation %s" raw_op)
+      in
+      op x y
+
     (* Expression evaluator
 
           val eval : state -> t -> int
- 
-       Takes a state and an expression, and returns the value of the expression in 
-       the given state.
-    *)                                                       
-    let eval st expr = failwith "Not yet implemented"
 
+       Takes a state and an expression, and returns the value of the expression in
+       the given state.
+     *)
+    let rec eval state expr = match expr with
+      | Const (n)        -> n
+      | Var (x)          -> state x
+      | Binop (op, x, y) -> apply_op op (eval state x) (eval state y)
+
+    let parse_op op = ostap (- $(op)), (fun x y -> Binop (op, x, y))
     (* Expression parser. You can use the following terminals:
 
          IDENT   --- a non-empty identifier a-zA-Z[a-zA-Z0-9_]* as a string
@@ -53,7 +103,22 @@ module Expr =
                                                                                                                   
     *)
     ostap (                                      
-      parse: empty {failwith "Not yet implemented"}
+      expr:
+        !(Ostap.Util.expr
+          (fun x -> x)
+          (Array.map (fun (assoc, operations) -> assoc, List.map parse_op operations)
+            [|
+              `Lefta, ["!!"];
+              `Lefta, ["&&"];
+              `Nona , ["<="; "<"; ">="; ">"; "=="; "!="];
+              `Lefta, ["+"; "-"];
+              `Lefta, ["*"; "/"; "%"];
+            |]
+          )
+          primary
+        );
+
+      primary: n:DECIMAL {Const n} | x:IDENT {Var x} | -"(" expr -")"
     )
     
   end
@@ -71,7 +136,7 @@ module Stmt =
     (* empty statement                  *) | Skip
     (* conditional                      *) | If     of Expr.t * t * t
     (* loop with a pre-condition        *) | While  of Expr.t * t
-    (* loop with a post-condition       *) (* add yourself *)  with show
+    (* loop with a post-condition       *) | Repeat of t * Expr.t with show
                                                                     
     (* The type of configuration: a state, an input stream, an output stream *)
     type config = Expr.state * int list * int list 
@@ -82,11 +147,42 @@ module Stmt =
 
        Takes a configuration and a statement, and returns another configuration
     *)
-    let rec eval conf stmt = failwith "Not yet implemented"
+    let rec eval ((state, stdin, stdout) as conf) stmt = match stmt with
+      | Read (x)         -> (
+        match stdin with
+          | i :: is -> (Expr.update x i state, is, stdout)
+          | _       -> failwith "Stdin is empty"
+      )
+      | Write (expr)     -> (state, stdin, stdout @ [Expr.eval state expr])
+      | Assign (x, expr) -> (Expr.update x (Expr.eval state expr) state, stdin, stdout)
+      | Seq (a, b)       -> eval (eval conf a) b
+      | Skip             -> conf
+      | If (expr, a, b)  -> eval conf (if (Expr.eval state expr) != 0 then a else b)
+      | While (expr, a)  -> if (Expr.eval state expr) != 0 then eval (eval conf a) stmt else conf
+      | Repeat (a, expr) -> (
+        let (state', stdin', stdout') as conf' = eval conf a in
+        if (Expr.eval state' expr) != 0 then conf else eval conf' stmt
+      )
                                
     (* Statement parser *)
     ostap (
-      parse: empty {failwith "Not yet implemented"}
+      stmt:
+        "read" "(" x:IDENT ")" {Read (x)} |
+        "write" "(" expr:!(Expr.expr) ")" {Write (expr)} |
+        "skip" {Skip} |
+        "if" expr:!(Expr.expr) "then" s1:parse s2:elsebranch {If(expr, s1, s2)} |
+        "while" expr:!(Expr.expr) "do" s1:parse "od" {While(expr, s1)} |
+        "for" s1:parse "," expr:!(Expr.expr) "," s2:parse "do" s3:parse "od" {Seq (s1, While (expr, Seq (s3, s2)))} |
+        "repeat" s1:parse "until" expr:!(Expr.expr) {Repeat(s1, expr)} |
+
+        x:IDENT ":=" expr:!(Expr.expr) {Assign (x, expr)};
+
+      elsebranch:
+        "fi" {Skip} |
+        "else" s1:parse "fi" {s1} |
+        "elif" expr:!(Expr.expr) "then" s1:parse s2:elsebranch {If(expr, s1, s2)};
+
+      parse: a:stmt ";" b:parse {Seq (a, b)} | stmt
     )
       
   end
