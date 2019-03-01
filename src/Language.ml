@@ -37,14 +37,63 @@ module Expr =
     *)
     let update x v s = fun y -> if x = y then v else s y
 
+    (* Apply raw binary operation to arguments
+          val apply_op : string -> int -> int -> int
+    *)
+    let apply_op raw_op x y =
+      (*
+        Convert int to bool
+
+        val of_int : int -> bool
+      *)
+      let of_int i = i != 0 in
+      (*
+        Convert bool to int
+
+        val to_int : bool -> int
+      *)
+      let to_int b = if b then 1 else 0 in
+      (*
+        Applies compare operation and convert it result to int
+
+        val compare_op : (int -> int -> bool) -> int -> int -> int
+      *)
+      let compare_op op x y = to_int (op x y) in
+      (*
+        Applies boolean operation and convert it result to int
+
+        val compare_op : (bool -> bool -> bool) -> int -> int -> int
+      *)
+      let boolean_op op x y = to_int (op (of_int x) (of_int y)) in
+      let op = match raw_op with
+      | "+"  -> ( + )
+      | "-"  -> ( - )
+      | "*"  -> ( * )
+      | "/"  -> ( / )
+      | "%"  -> (mod)
+      | "<"  -> compare_op ( <  )
+      | "<=" -> compare_op ( <= )
+      | ">"  -> compare_op ( >  )
+      | ">=" -> compare_op ( >= )
+      | "==" -> compare_op ( == )
+      | "!=" -> compare_op ( != )
+      | "&&" -> boolean_op ( && )
+      | "!!" -> boolean_op ( || )
+      | _    -> failwith (Printf.sprintf "Unknown operation %s" raw_op)
+      in
+      op x y
+
     (* Expression evaluator
 
           val eval : state -> t -> int
- 
-       Takes a state and an expression, and returns the value of the expression in 
+
+       Takes a state and an expression, and returns the value of the expression in
        the given state.
-     *)                                                       
-    let eval _ _ = failwith "Not yet implemented"
+     *)
+    let rec eval state expr = match expr with
+      | Const (n)        -> n
+      | Var (x)          -> state x
+      | Binop (op, x, y) -> apply_op op (eval state x) (eval state y)
 
     (* Expression parser. You can use the following terminals:
 
