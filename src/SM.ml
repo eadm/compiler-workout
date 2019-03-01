@@ -18,13 +18,41 @@ type prg = insn list
  *)
 type config = int list * Stmt.config
 
+(*
+    val eval_insn : config -> insn -> config
+*)
+let eval_insn (stack, conf) insn =
+    let (state, stdin, stdout) = conf in match insn with
+    | BINOP (op) -> (
+        match stack with
+            | x :: y :: ss -> ((Syntax.Expr.apply_op op y x) :: ss, conf)
+            | _            -> failwith "There is no enough element on the stack"
+    )
+    | CONST (n)  -> (n :: stack, conf)
+    | READ       -> (
+        match stdin with
+            | i :: is -> (i :: stack, (state, is, stdout))
+            | _       -> failwith "Stdin is empty"
+    )
+    | WRITE      -> (
+        match stack with
+            | x :: ss -> (ss, (state, stdin, stdout @ [x]))
+            | _       -> failwith "Stack is empty"
+    )
+    | LD (x)     -> (state x :: stack, conf)
+    | ST (x)     -> (
+        match stack with
+            | v :: ss -> (ss, (Syntax.Expr.update x v state, stdin, stdout))
+            | _       -> failwith "Stack is empty"
+    )
+
 (* Stack machine interpreter
 
      val eval : config -> prg -> config
 
    Takes a configuration and a program, and returns a configuration as a result
- *)                         
-let eval _ = failwith "Not yet implemented"
+ *)
+let rec eval config prg = List.fold_left eval_insn config prg
 
 (* Top-level evaluation
 
@@ -41,4 +69,17 @@ let run p i = let (_, (_, _, o)) = eval ([], (Language.Expr.empty, i, [])) p in 
    Takes a program in the source language and returns an equivalent program for the
    stack machine
  *)
-let compile _ = failwith "Not yet implemented"
+let rec compile stmt =
+    (*
+        val compile_expr : Syntax.Expr.t -> prg
+    *)
+    let rec compile_expr expr = match expr with
+        | Syntax.Expr.Const (n)        -> [CONST n]
+        | Syntax.Expr.Var (x)          -> [LD x]
+        | Syntax.Expr.Binop (op, x, y) -> (compile_expr x) @ (compile_expr y) @ [BINOP op]
+    in
+    match stmt with
+    | Syntax.Stmt.Read (x)         -> [READ; ST x]
+    | Syntax.Stmt.Write (expr)     -> (compile_expr expr) @ [WRITE]
+    | Syntax.Stmt.Assign (x, expr) -> (compile_expr expr) @ [ST x]
+    | Syntax.Stmt.Seq (a, b)       -> (compile a) @ (compile b)
