@@ -25,7 +25,7 @@ let eval_insn (stack, conf) insn =
     let (state, stdin, stdout) = conf in match insn with
     | BINOP (op) -> (
         match stack with
-            | x :: y :: ss -> ((Syntax.Expr.apply_op op y x) :: ss, conf)
+            | x :: y :: ss -> ((Expr.apply_op op y x) :: ss, conf)
             | _            -> failwith "There is no enough element on the stack"
     )
     | CONST (n)  -> (n :: stack, conf)
@@ -42,7 +42,7 @@ let eval_insn (stack, conf) insn =
     | LD (x)     -> (state x :: stack, conf)
     | ST (x)     -> (
         match stack with
-            | v :: ss -> (ss, (Syntax.Expr.update x v state, stdin, stdout))
+            | v :: ss -> (ss, (Expr.update x v state, stdin, stdout))
             | _       -> failwith "Stack is empty"
     )
 
@@ -71,15 +71,15 @@ let run p i = let (_, (_, _, o)) = eval ([], (Language.Expr.empty, i, [])) p in 
  *)
 let rec compile stmt =
     (*
-        val compile_expr : Syntax.Expr.t -> prg
+        val compile_expr : Language.Expr.t -> prg
     *)
     let rec compile_expr expr = match expr with
-        | Syntax.Expr.Const (n)        -> [CONST n]
-        | Syntax.Expr.Var (x)          -> [LD x]
-        | Syntax.Expr.Binop (op, x, y) -> (compile_expr x) @ (compile_expr y) @ [BINOP op]
+        | Expr.Const (n)        -> [CONST n]
+        | Expr.Var (x)          -> [LD x]
+        | Expr.Binop (op, x, y) -> (compile_expr x) @ (compile_expr y) @ [BINOP op]
     in
     match stmt with
-    | Syntax.Stmt.Read (x)         -> [READ; ST x]
-    | Syntax.Stmt.Write (expr)     -> (compile_expr expr) @ [WRITE]
-    | Syntax.Stmt.Assign (x, expr) -> (compile_expr expr) @ [ST x]
-    | Syntax.Stmt.Seq (a, b)       -> (compile a) @ (compile b)
+    | Stmt.Read (x)         -> [READ; ST x]
+    | Stmt.Write (expr)     -> (compile_expr expr) @ [WRITE]
+    | Stmt.Assign (x, expr) -> (compile_expr expr) @ [ST x]
+    | Stmt.Seq (a, b)       -> (compile a) @ (compile b)

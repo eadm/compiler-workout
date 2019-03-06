@@ -95,6 +95,8 @@ module Expr =
       | Var (x)          -> state x
       | Binop (op, x, y) -> apply_op op (eval state x) (eval state y)
 
+    let parse_op op = ostap (- $(op)), (fun x y -> Binop (op, x, y))
+
     (* Expression parser. You can use the following terminals:
 
          IDENT   --- a non-empty identifier a-zA-Z[a-zA-Z0-9_]* as a string
@@ -102,7 +104,22 @@ module Expr =
    
     *)
     ostap (
-      parse: empty {failwith "Not implemented yet"}
+      expr:
+        !(Ostap.Util.expr
+          (fun x -> x)
+          (Array.map (fun (assoc, operations) -> assoc, List.map parse_op operations)
+            [|
+              `Lefta, ["!!"];
+              `Lefta, ["&&"];
+              `Nona , ["<"; "<="; ">"; ">="; "=="; "!="];
+              `Lefta, ["+"; "-"];
+              `Lefta, ["*"; "/"; "%"];
+            |]
+          )
+          primary
+        );
+
+      primary: n:DECIMAL {Const n} | x:IDENT {Var x} | -"(" expr -")"
     )
 
   end
@@ -127,11 +144,24 @@ module Stmt =
 
        Takes a configuration and a statement, and returns another configuration
     *)
-    let eval _ = failwith "Not implemented yet"
+    let rec eval (state, stdin, stdout) stmt = match stmt with
+      | Read (x)         -> (
+        match stdin with
+          | i :: is -> (Expr.update x i state, is, stdout)
+          | _       -> failwith "Stdin is empty"
+      )
+      | Write (expr)     -> (state, stdin, stdout @ [Expr.eval state expr])
+      | Assign (x, expr) -> (Expr.update x (Expr.eval state expr) state, stdin, stdout)
+      | Seq (a, b)       -> eval (eval (state, stdin, stdout) a) b
 
     (* Statement parser *)
     ostap (
-      parse: empty {failwith "Not implemented yet"}
+      stmt:
+        "read" "(" x:IDENT ")" {Read (x)} |
+        "write" "(" expr:!(Expr.expr) ")" {Write (expr)} |
+        x:IDENT ":=" expr:!(Expr.expr) {Assign (x, expr)};
+
+      parse: a:stmt ";" b:parse {Seq (a, b)} | stmt
     )
       
   end
