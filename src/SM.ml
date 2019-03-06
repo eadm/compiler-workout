@@ -25,7 +25,7 @@ let eval_insn (stack, conf) insn =
     let (state, stdin, stdout) = conf in match insn with
     | BINOP (op) -> (
         match stack with
-            | x :: y :: ss -> ((Syntax.Expr.apply_op op y x) :: ss, conf)
+            | x :: y :: ss -> ((Expr.apply_op op y x) :: ss, conf)
             | _            -> failwith "There is no enough element on the stack"
     )
     | CONST (n)  -> (n :: stack, conf)
@@ -42,7 +42,7 @@ let eval_insn (stack, conf) insn =
     | LD (x)     -> (state x :: stack, conf)
     | ST (x)     -> (
         match stack with
-            | v :: ss -> (ss, (Syntax.Expr.update x v state, stdin, stdout))
+            | v :: ss -> (ss, (Expr.update x v state, stdin, stdout))
             | _       -> failwith "Stack is empty"
     )
 
