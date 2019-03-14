@@ -73,6 +73,98 @@ let show instr =
 (* Opening stack machine to use instructions without fully qualified names *)
 open SM
 
+(*
+    compile_insn : (env, asm) -> insn -> (env, asm)
+*)
+let compile_insn (env, asm) insn =
+  (*
+      Inststuction to clean register reg
+  *)
+  let clean reg = Binop("^", reg, reg) in
+  (*
+      Returns condition code suffix for operation
+  *)
+  let cc_suffix op = match op with
+    | "<"  -> "l"
+    | "<=" -> "le"
+    | ">"  -> "g"
+    | ">=" -> "ge"
+    | "==" -> "e"
+    | "!=" -> "ne"
+    | _ -> failwith (Printf.sprintf "Unknown operation %s" op)
+  in
+  let env', asm' =
+    match insn with
+    | CONST (n) -> (
+      let s, env' = env#allocate in
+      env', [Mov (L n, s)]
+    )
+    | READ -> (
+      let s, env' = env#pop in
+      env', [Call "Lread"; Mov (eax, s)]
+    )
+    | WRITE -> (
+      let s, env' = env#pop in
+      env', [Push s; Call "Lwrite"; Pop eax]
+    )
+    | LD (x) -> (
+      let s, env' = (env#global x)#allocate in
+      env', [Mov (M (env'#loc x), s)]
+    )
+    | ST (x) -> (
+      let s, env' = (env#global x)#pop in
+      env', [Mov (s, M (env'#loc x))]
+    )
+    | BINOP (op) -> (
+      let s2, s1, env' = env#pop2 in
+      let rs, env' = env'#allocate in
+      let asm' = match op with
+      | "+" | "-" | "*" -> [
+        Mov (s1, eax);
+        Binop (op, s2, eax);
+        Mov (eax, rs)
+      ]
+      | "/" | "%" -> (
+        let reg = if op == "/" then eax else edx in
+        [
+          Mov (s1, eax);
+          clean edx;
+          Cltd;
+          IDiv s2;
+          Mov (reg, rs)
+        ]
+      )
+      | "<=" | "<" | ">=" | ">" | "==" | "!=" -> [
+        clean eax;
+        Mov (s1, edx);
+        Binop ("cmp", s2, edx);
+        Set (cc_suffix op, "%al");
+        Mov (eax, rs)
+      ]
+      | "&&" -> [
+        clean eax;
+        clean edx;
+        Binop ("cmp", L 0, s1);
+        Set("ne", "%al");
+        Binop ("cmp", L 0, s2);
+        Set("ne", "%dl");
+        Binop ("&&", edx, eax);
+        Mov (eax, rs)
+      ]
+      | "!!" -> [
+        clean eax;
+        Mov (s1, edx);
+        Binop ("!!", s2, edx);
+        Set ("nz", "%al");
+        Mov (eax, rs)
+      ]
+      | _ -> failwith (Printf.sprintf "Unknown operation %s" op)
+      in
+      (env', asm')
+    )
+    | _ -> failwith (Printf.sprintf "Instruction not supported")
+  in (env', asm' @ asm)
+
 (* Symbolic stack machine evaluator
 
      compile : env -> prg -> env * instr list
@@ -80,7 +172,7 @@ open SM
    Take an environment, a stack machine program, and returns a pair --- the updated environment and the list
    of x86 instructions
 *)
-let compile _ _ = failwith "Not yet implemented"
+let compile env prg = List.fold_left compile_insn (env, []) prg
 
 (* A set of strings *)           
 module S = Set.Make (String)
