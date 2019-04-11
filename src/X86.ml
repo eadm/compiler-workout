@@ -99,7 +99,6 @@ let compile_insn (env, asm) insn =
     | "!=" -> "ne"
     | _ -> failwith (Printf.sprintf "Unknown operation %s" op)
   in
-  let _ = print_string (show_insn insn); print_string "\n" in
   let env', asm' =
     match insn with
     | CONST (n) -> (
@@ -189,9 +188,7 @@ let compile_insn (env, asm) insn =
    Take an environment, a stack machine program, and returns a pair --- the updated environment and the list
    of x86 instructions
 *)
-let compile env prg =
-    print_string "\n\nProgram start:\n";
-    List.fold_left compile_insn (env, []) prg
+let compile env prg = List.fold_left compile_insn (env, []) prg
 
 (* A set of strings *)           
 module S = Set.Make (String)

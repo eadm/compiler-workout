@@ -100,10 +100,6 @@ let label_generator =
             "l" ^ string_of_int counter
     end
 
-let rec print_list = function
-    [] -> ()
-    | e::l -> print_string(show_insn e) ; print_string "\n" ; print_list l
-
 (* Stack machine compiler
 
      val compile : Language.Stmt.t -> prg
@@ -112,7 +108,6 @@ let rec print_list = function
    stack machine
 *)
 let rec compile stmt =
-(*    let _ = print_string (Stmt.show_t stmt); print_string "\n\nc" in*)
     (*
         val compile_expr : Language.Expr.t -> prg
      *)
@@ -133,7 +128,7 @@ let rec compile stmt =
             (compile b)
         | _                     -> compile stmt
     in
-    let cmp = match stmt with
+    match stmt with
     | Stmt.Read (x)         -> [READ; ST x]
     | Stmt.Write (expr)     -> (compile_expr expr) @ [WRITE]
     | Stmt.Assign (x, expr) -> (compile_expr expr) @ [ST x]
@@ -159,6 +154,3 @@ let rec compile stmt =
         let label_end = label_generator#next in
         (compile_if stmt label_end) @
         [LABEL label_end]
-    in
-(*    let _ = print_string "\n ----------------- \n"; print_list cmp; print_string "\n ----------------- \n" in*)
-    cmp
