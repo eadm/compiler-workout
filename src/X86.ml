@@ -115,11 +115,11 @@ let compile_insn (env, asm) insn =
     )
     | LD (x) -> (
       let s, env' = (env#global x)#allocate in
-      env', [Mov (M (env'#loc x), s)]
+      env', [Mov (M (env'#loc x), eax); Mov (eax, s)]
     )
     | ST (x) -> (
       let s, env' = (env#global x)#pop in
-      env', [Mov (s, M (env'#loc x))]
+      env', [Mov (s, eax); Mov (eax, M (env'#loc x))]
     )
     | BINOP (op) -> (
       let s2, s1, env' = env#pop2 in
