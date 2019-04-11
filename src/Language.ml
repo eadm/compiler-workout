@@ -161,7 +161,7 @@ module Stmt =
       | While (expr, a)  -> if (Expr.eval state expr) != 0 then eval (eval conf a) stmt else conf
       | Repeat (a, expr) -> (
         let (state', stdin', stdout') as conf' = eval conf a in
-        if (Expr.eval state' expr) != 0 then conf else eval conf' stmt
+        if (Expr.eval state' expr) != 0 then conf' else eval conf' stmt
       )
                                
     (* Statement parser *)
