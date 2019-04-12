@@ -174,9 +174,8 @@ let rec compile_block stmt =
         (compile_if stmt label_end) @
         [LABEL label_end]
     | Stmt.Call (f, args) ->
-        let args_rev = List.concat(List.map compile_expr args) in
-        let args = List.rev args_rev in
-        args @ [CALL f]
+        List.concat(List.map compile_expr (List.rev args)) @
+        [CALL f]
 
 let compile_def (f, (arg_names, local_names, stmt)) =
     [LABEL f; BEGIN (arg_names, local_names)] @

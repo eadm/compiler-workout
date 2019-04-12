@@ -172,7 +172,7 @@ module Stmt =
         let scope = State.push_scope state (arg_names @ local_names) in
         let f_state = List.fold_left2 (fun state' x v -> State.update x v state') scope arg_names args in
         let (state', stdin', stdout') = eval env (f_state, stdin, stdout) f_stmt in
-        (State.drop_scope state state', stdin', stdout')
+        (State.drop_scope state' state, stdin', stdout')
       )
                                 
     (* Statement parser *)
